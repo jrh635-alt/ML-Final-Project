@@ -9,6 +9,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 df_data = pd.read_csv('data/uncleaneddata.csv')
 headers = pd.read_csv('data/headers.csv')
@@ -57,3 +59,14 @@ weights_df = weights_df.sort_values(by='Abs_Weight', ascending=False).drop(colum
 
 print(f"Intercept: {ULRmodel.intercept_}")
 print(weights_df)
+
+
+'''
+# histogram to visualize spread of each feature
+for feature in features:
+    plt.figure()
+    sns.histplot(df_features[feature])
+    plt.title(feature)
+    plt.show()
+'''
+
