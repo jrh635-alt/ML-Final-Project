@@ -7,10 +7,12 @@ Created on Tue Apr 21 13:46:55 2026
 """
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
+from sklearn.linear_model import Lasso
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -74,6 +76,28 @@ def sgd_regression(X_train, X_test, y_train, y_test):
     print(f"Intercept: {sgd_model.intercept_}")
     return y_pred, weights_df
 
+def ridge_regression(X_train, X_test, y_train, y_test):
+    ridge_model = Ridge()
+    ridge_model.fit(X_train, y_train)
+    y_pred = ridge_model.predict(X_test)
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Weight': ridge_model.coef_
+    })
+    print(f"Intercept: {ridge_model.intercept_}")
+    return y_pred, weights_df
+
+def lasso_regression(X_train, X_test, y_train, y_test):
+    lasso_model = Lasso()
+    lasso_model.fit(X_train, y_train)
+    y_pred = lasso_model.predict(X_test)
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Weight': lasso_model.coef_
+    })
+    print(f"Intercept: {lasso_model.intercept_}")
+    return y_pred, weights_df
+
 
 if __name__ == '__main__':
     # File paths
@@ -109,6 +133,8 @@ if __name__ == '__main__':
        plt.show()
     '''
 
+    # Time permitting - k fold CV?
+
     # Data splitting
     X_train, X_test, y_train, y_test = split_data(df_features, features, target)
 
@@ -138,10 +164,37 @@ if __name__ == '__main__':
 
     print(weights_df_sgd)
 
+    # Ridge Regression
+    y_pred_ridge, weights_df_ridge = ridge_regression(X_train, X_test, y_train,
+                                                y_test)
+
+    print('***RIDGE REGRESSION***')
+    print(f"R^2 Score: {r2_score(y_test, y_pred_ridge):.4f}")
+    print(f"MSE: {mean_squared_error(y_test, y_pred_ridge):.4f}")
+
+    weights_df_ridge['Abs_Weight'] = weights_df_ridge['Weight'].abs()
+    weights_df_ridge = weights_df_ridge.sort_values(by='Abs_Weight',
+                                                ascending=False).drop(
+        columns=['Abs_Weight'])
+
+    print(weights_df_ridge)
+
+    # Lasso Regression
+    y_pred_lasso, weights_df_lasso = lasso_regression(X_train, X_test, y_train, y_test)
+    print('***LASSO REGRESSION***')
+    print(f"R^2 Score: {r2_score(y_test, y_pred_lasso):.4f}")
+    print(f"MSE: {mean_squared_error(y_test, y_pred_lasso):.4f}")
+
+    weights_df_lasso['Abs_Weight'] = weights_df_lasso['Weight'].abs()
+    weights_df_lasso = weights_df_lasso.sort_values(by='Abs_Weight', ascending=False).drop(
+        columns=['Abs_Weight'])
+
+    print(weights_df_lasso)
+
+    # Hyperparameter tuning on a few of the better models?
 
 
-
-
+    # Plot residuals at some point?
 
 
 
