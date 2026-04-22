@@ -9,8 +9,10 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.linear_model import SGDRegressor
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 
 def read_data(data_file_path, headers_file_path, features_file_path):
     df_data = pd.read_csv(data_file_path)
@@ -51,7 +53,18 @@ def linear_regression(X_train, X_test, y_train, y_test):
 
     return y_pred, weights_df
 
+def sgd_regression(X_train, X_test, y_train, y_test):
+    sgd_model = SGDRegressor()
+    sgd_model.fit(X_train, y_train)
+    y_pred = sgd_model.predict(X_test)
 
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Weight': sgd_model.coef_
+    })
+
+    print(f"Intercept: {sgd_model.intercept_}")
+    return y_pred, weights_df
 
 
 if __name__ == '__main__':
@@ -92,19 +105,32 @@ if __name__ == '__main__':
     X_train, X_test, y_train, y_test = split_data(df_features, features, target)
 
     # Linear regression
-    y_pred, weights_df = linear_regression(X_train, X_test, y_train, y_test)
+    y_pred_lin, weights_df_lin = linear_regression(X_train, X_test, y_train, y_test)
 
     print('***LINEAR REGRESSION***')
-    print(f"R^2 Score: {r2_score(y_test, y_pred):.4f}")
-    print(f"MSE: {mean_squared_error(y_test, y_pred):.4f}")
+    print(f"R^2 Score: {r2_score(y_test, y_pred_lin):.4f}")
+    print(f"MSE: {mean_squared_error(y_test, y_pred_lin):.4f}")
 
-    weights_df['Abs_Weight'] = weights_df['Weight'].abs()
-    weights_df = weights_df.sort_values(by='Abs_Weight', ascending=False).drop(
+    weights_df_lin['Abs_Weight'] = weights_df_lin['Weight'].abs()
+    weights_df_lin = weights_df_lin.sort_values(by='Abs_Weight', ascending=False).drop(
         columns=['Abs_Weight'])
 
-    print(weights_df)
+    print(weights_df_lin)
 
-    #
+    # SGD regression
+    y_pred_sgd, weights_df_sgd = sgd_regression(X_train, X_test, y_train, y_test)
+
+    print('***SGD REGRESSION***')
+    print(f"R^2 Score: {r2_score(y_test, y_pred_sgd):.4f}")
+    print(f"MSE: {mean_squared_error(y_test, y_pred_sgd):.4f}")
+
+    weights_df_sgd['Abs_Weight'] = weights_df_sgd['Weight'].abs()
+    weights_df_sgd = weights_df_sgd.sort_values(by='Abs_Weight', ascending=False).drop(
+        columns=['Abs_Weight'])
+
+    print(weights_df_sgd)
+
+
 
 
 
