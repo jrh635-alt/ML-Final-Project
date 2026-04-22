@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.linear_model import SGDRegressor
+from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -36,7 +37,14 @@ def split_data(df_features, features, target):
     y = df_features[target]
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=67)
-    return X_train, X_test, y_train, y_test
+
+    # Scaling to ensure certain features don't take over
+    scaler = StandardScaler()
+    scaler.fit(X_train)
+
+    X_train_scaled = scaler.transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    return X_train_scaled, X_test_scaled, y_train, y_test
 
 def linear_regression(X_train, X_test, y_train, y_test):
     ULRmodel = LinearRegression()
