@@ -13,8 +13,10 @@ from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
 from sklearn.linear_model import Lasso
+from sklearn.linear_model import LogisticRegression
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.svm import SVC
 
 
 def read_data(data_file_path, headers_file_path, features_file_path):
@@ -96,6 +98,22 @@ def lasso_regression(X_train, X_test, y_train, y_test):
         'Weight': lasso_model.coef_
     })
     print(f"Intercept: {lasso_model.intercept_}")
+    return y_pred, weights_df
+
+def binary_preprocessing(y_train, y_test):
+    binary_y_train = (y_train > 0).astype(int)
+    binary_y_test = (y_test > 0).astype(int)
+    return binary_y_train, binary_y_test
+
+def logistic_regression(X_train, X_test, y_train, y_test):
+    log_model = LogisticRegression()
+    log_model.fit(X_train, y_train)
+    y_pred = log_model.predict(X_test)
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Weight': log_model.coef_[0]
+    })
+    print(f"Intercept: {log_model.intercept_[0]}")
     return y_pred, weights_df
 
 
@@ -190,6 +208,18 @@ if __name__ == '__main__':
         columns=['Abs_Weight'])
 
     print(weights_df_lasso)
+
+    # Prep for binary classification methods
+    binary_y_train, binary_y_test = binary_preprocessing(y_train, y_test)
+    print(f'binary_y_train: {binary_y_train.shape}')
+    print(f'binary_y_test: {binary_y_test.shape}')
+
+    # Logistic regression
+    y_pred_logistic, weights_df_logistic = logistic_regression(X_train, X_test, binary_y_train, binary_y_test)
+    print('***LOGISTIC REGRESSION***')
+    print(f"R^2 Score: {r2_score(binary_y_test, y_pred_logistic):.4f}")
+    print(f"MSE: {mean_squared_error(binary_y_test, y_pred_logistic):.4f}")
+    print(weights_df_logistic)
 
     # Hyperparameter tuning on a few of the better models?
 
