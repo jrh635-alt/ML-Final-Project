@@ -8,11 +8,10 @@ Created on Tue Apr 21 13:46:55 2026
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Lasso
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, f1_score
 from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
-from sklearn.linear_model import Lasso
 from sklearn.linear_model import LogisticRegression
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -113,6 +112,9 @@ def logistic_regression(X_train, X_test, y_train, y_test):
         'Feature': features,
         'Weight': log_model.coef_[0]
     })
+    weights_df['Abs_Weight'] = weights_df['Weight'].abs()
+    weights_df = weights_df.sort_values(by='Abs_Weight', ascending=False)
+    weights_df = weights_df.drop(columns=['Abs_Weight'])
     print(f"Intercept: {log_model.intercept_[0]}")
     return y_pred, weights_df
 
@@ -217,8 +219,8 @@ if __name__ == '__main__':
     # Logistic regression
     y_pred_logistic, weights_df_logistic = logistic_regression(X_train, X_test, binary_y_train, binary_y_test)
     print('***LOGISTIC REGRESSION***')
-    print(f"R^2 Score: {r2_score(binary_y_test, y_pred_logistic):.4f}")
-    print(f"MSE: {mean_squared_error(binary_y_test, y_pred_logistic):.4f}")
+    print(f"Accuracy: {accuracy_score(binary_y_test, y_pred_logistic):.4f}")
+    print(f"F1 Score: {f1_score(binary_y_test, y_pred_logistic):.4f}")
     print(weights_df_logistic)
 
     # Hyperparameter tuning on a few of the better models?
