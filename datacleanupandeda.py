@@ -16,6 +16,8 @@ from sklearn.linear_model import LogisticRegression
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.svm import SVC
+from sklearn.dummy import DummyRegressor
+from sklearn.ensemble import RandomForestRegressor
 
 
 def read_data(data_file_path, headers_file_path, features_file_path):
@@ -144,6 +146,12 @@ if __name__ == '__main__':
     print(f'df_features: \n {df_features.head()}')
     print(f'df_features.shape: {df_features.shape}')
 
+    # Plotting target distribution to check for skewness
+    plt.figure()
+    sns.histplot(df_features[target])
+    plt.title('Distribution of Target Variable')
+    plt.show()
+
     '''
     # Histograms to visualize spread within each feature
     for feature in features:
@@ -157,6 +165,13 @@ if __name__ == '__main__':
 
     # Data splitting
     X_train, X_test, y_train, y_test = split_data(df_features, features, target)
+
+    # Baseline regression
+    baseline = DummyRegressor(strategy='mean')
+    baseline.fit(X_train, y_train)
+    y_pred_baseline = baseline.predict(X_test)
+    print(f"R^2 Score: {r2_score(y_test, y_pred_baseline):.4f}")
+    print(f"MSE: {mean_squared_error(y_test, y_pred_baseline):.4f}")
 
     # Linear regression
     y_pred_lin, weights_df_lin = linear_regression(X_train, X_test, y_train, y_test)
@@ -211,6 +226,14 @@ if __name__ == '__main__':
 
     print(weights_df_lasso)
 
+    # Random Forest Regression
+    rf_model = RandomForestRegressor(random_state=67)
+    rf_model.fit(X_train, y_train)
+    y_pred_rf = rf_model.predict(X_test)
+    print('***RANDOM FOREST REGRESSION***')
+    print(f"R^2 Score: {r2_score(y_test, y_pred_rf):.4f}")
+    print(f"MSE: {mean_squared_error(y_test, y_pred_rf):.4f}")
+
     # Prep for binary classification methods
     binary_y_train, binary_y_test = binary_preprocessing(y_train, y_test)
     print(f'binary_y_train: {binary_y_train.shape}')
@@ -222,6 +245,18 @@ if __name__ == '__main__':
     print(f"Accuracy: {accuracy_score(binary_y_test, y_pred_logistic):.4f}")
     print(f"F1 Score: {f1_score(binary_y_test, y_pred_logistic):.4f}")
     print(weights_df_logistic)
+
+    # Error analysis
+    results_df = pd.DataFrame({
+        'Actual': y_test,
+        'Predicted': y_pred_lin
+    })
+    
+    results_df['Residual'] = results_df['Actual'] - results_df['Predicted']
+    results_df['Abs_Residual'] = results_df['Residual'].abs()
+    print('***ERROR ANALYSIS: TOP 10 Largest Residuals***')
+    print(results_df.sort_values(by='Abs_Residual', ascending=False).head(10))
+
 
     # Hyperparameter tuning on a few of the better models?
 
