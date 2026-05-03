@@ -13,6 +13,8 @@ from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier, plot_tree
+from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor, GradientBoostingRegressor
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.svm import SVC
@@ -51,7 +53,7 @@ def split_data(df_features, features, target):
     X_test_scaled = scaler.transform(X_test)
     return X_train_scaled, X_test_scaled, y_train, y_test
 
-def linear_regression(X_train, X_test, y_train, y_test):
+def linear_regression(X_train, X_test, y_train, y_test, features):
     ULRmodel = LinearRegression()
     ULRmodel.fit(X_train, y_train)
 
@@ -66,7 +68,7 @@ def linear_regression(X_train, X_test, y_train, y_test):
 
     return y_pred, weights_df
 
-def sgd_regression(X_train, X_test, y_train, y_test):
+def sgd_regression(X_train, X_test, y_train, y_test, features):
     sgd_model = SGDRegressor()
     sgd_model.fit(X_train, y_train)
     y_pred = sgd_model.predict(X_test)
@@ -79,7 +81,7 @@ def sgd_regression(X_train, X_test, y_train, y_test):
     print(f"Intercept: {sgd_model.intercept_}")
     return y_pred, weights_df
 
-def ridge_regression(X_train, X_test, y_train, y_test):
+def ridge_regression(X_train, X_test, y_train, y_test, features):
     ridge_model = Ridge()
     ridge_model.fit(X_train, y_train)
     y_pred = ridge_model.predict(X_test)
@@ -90,7 +92,7 @@ def ridge_regression(X_train, X_test, y_train, y_test):
     print(f"Intercept: {ridge_model.intercept_}")
     return y_pred, weights_df
 
-def lasso_regression(X_train, X_test, y_train, y_test):
+def lasso_regression(X_train, X_test, y_train, y_test, features):
     lasso_model = Lasso()
     lasso_model.fit(X_train, y_train)
     y_pred = lasso_model.predict(X_test)
@@ -106,7 +108,7 @@ def binary_preprocessing(y_train, y_test):
     binary_y_test = (y_test > 0).astype(int)
     return binary_y_train, binary_y_test
 
-def logistic_regression(X_train, X_test, y_train, y_test):
+def logistic_regression(X_train, X_test, y_train, y_test, features):
     log_model = LogisticRegression()
     log_model.fit(X_train, y_train)
     y_pred = log_model.predict(X_test)
@@ -119,6 +121,13 @@ def logistic_regression(X_train, X_test, y_train, y_test):
     weights_df = weights_df.drop(columns=['Abs_Weight'])
     print(f"Intercept: {log_model.intercept_[0]}")
     return y_pred, weights_df
+
+def decision_tree(X_train, X_test, y_train, y_test, features):
+    tree_model = DecisionTreeClassifier()
+    tree_model.fit(X_train, y_train)
+    y_pred = tree_model.predict(X_test)
+    weights = tree_model.feature_importances_
+    return y_pred, weights
 
 
 if __name__ == '__main__':
@@ -174,7 +183,7 @@ if __name__ == '__main__':
     print(f"MSE: {mean_squared_error(y_test, y_pred_baseline):.4f}")
 
     # Linear regression
-    y_pred_lin, weights_df_lin = linear_regression(X_train, X_test, y_train, y_test)
+    y_pred_lin, weights_df_lin = linear_regression(X_train, X_test, y_train, y_test, features)
 
     print('***LINEAR REGRESSION***')
     print(f"R^2 Score: {r2_score(y_test, y_pred_lin):.4f}")
@@ -187,7 +196,7 @@ if __name__ == '__main__':
     print(weights_df_lin)
 
     # SGD regression
-    y_pred_sgd, weights_df_sgd = sgd_regression(X_train, X_test, y_train, y_test)
+    y_pred_sgd, weights_df_sgd = sgd_regression(X_train, X_test, y_train, y_test, features)
 
     print('***SGD REGRESSION***')
     print(f"R^2 Score: {r2_score(y_test, y_pred_sgd):.4f}")
@@ -201,7 +210,7 @@ if __name__ == '__main__':
 
     # Ridge Regression
     y_pred_ridge, weights_df_ridge = ridge_regression(X_train, X_test, y_train,
-                                                y_test)
+                                                y_test, features)
 
     print('***RIDGE REGRESSION***')
     print(f"R^2 Score: {r2_score(y_test, y_pred_ridge):.4f}")
@@ -215,7 +224,7 @@ if __name__ == '__main__':
     print(weights_df_ridge)
 
     # Lasso Regression
-    y_pred_lasso, weights_df_lasso = lasso_regression(X_train, X_test, y_train, y_test)
+    y_pred_lasso, weights_df_lasso = lasso_regression(X_train, X_test, y_train, y_test, features)
     print('***LASSO REGRESSION***')
     print(f"R^2 Score: {r2_score(y_test, y_pred_lasso):.4f}")
     print(f"MSE: {mean_squared_error(y_test, y_pred_lasso):.4f}")
@@ -240,7 +249,7 @@ if __name__ == '__main__':
     print(f'binary_y_test: {binary_y_test.shape}')
 
     # Logistic regression
-    y_pred_logistic, weights_df_logistic = logistic_regression(X_train, X_test, binary_y_train, binary_y_test)
+    y_pred_logistic, weights_df_logistic = logistic_regression(X_train, X_test, binary_y_train, binary_y_test, features)
     print('***LOGISTIC REGRESSION***')
     print(f"Accuracy: {accuracy_score(binary_y_test, y_pred_logistic):.4f}")
     print(f"F1 Score: {f1_score(binary_y_test, y_pred_logistic):.4f}")
@@ -257,6 +266,11 @@ if __name__ == '__main__':
     print('***ERROR ANALYSIS: TOP 10 Largest Residuals***')
     print(results_df.sort_values(by='Abs_Residual', ascending=False).head(10))
 
+    # Decision tree
+    y_pred_dtree, weights_dtree = decision_tree(X_train, X_test, y_train, y_test, features)
+    print('***DECISION TREE***')
+    print(f"Accuracy: {accuracy_score(y_test, y_pred_dtree):.4f}")
+    print(f"F1 Score: {f1_score(y_test, y_pred_dtree):.4f}")
 
     # Hyperparameter tuning on a few of the better models?
 
