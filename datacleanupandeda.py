@@ -7,20 +7,21 @@ Created on Tue Apr 21 13:46:55 2026
 """
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression, Lasso
+from sklearn.linear_model import LinearRegression, Lasso, ElasticNet
 from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, f1_score
 from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier, plot_tree
-from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor, GradientBoostingRegressor
+from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor, \
+    GradientBoostingRegressor, GradientBoostingClassifier, \
+    RandomForestClassifier
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.svm import SVC
 from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import RandomForestRegressor
-
 
 def read_data(data_file_path, headers_file_path, features_file_path):
     df_data = pd.read_csv(data_file_path)
@@ -69,7 +70,7 @@ def linear_regression(X_train, X_test, y_train, y_test, features):
     return y_pred, weights_df
 
 def sgd_regression(X_train, X_test, y_train, y_test, features):
-    sgd_model = SGDRegressor()
+    sgd_model = SGDRegressor(random_state=67)
     sgd_model.fit(X_train, y_train)
     y_pred = sgd_model.predict(X_test)
 
@@ -122,12 +123,86 @@ def logistic_regression(X_train, X_test, y_train, y_test, features):
     print(f"Intercept: {log_model.intercept_[0]}")
     return y_pred, weights_df
 
-def decision_tree(X_train, X_test, y_train, y_test, features):
-    tree_model = DecisionTreeClassifier()
+def decision_tree_regression(X_train, X_test, y_train, y_test, features):
+    tree_model = DecisionTreeRegressor(random_state=67)
     tree_model.fit(X_train, y_train)
     y_pred = tree_model.predict(X_test)
-    weights = tree_model.feature_importances_
-    return y_pred, weights
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Importance': tree_model.feature_importances_
+    }).sort_values(by='Importance', ascending=False)
+    return y_pred, weights_df
+
+
+def random_forest_regression(X_train, X_test, y_train, y_test, features):
+    rf_model = RandomForestRegressor(random_state=67)
+    rf_model.fit(X_train, y_train)
+    y_pred = rf_model.predict(X_test)
+
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Importance': rf_model.feature_importances_
+    }).sort_values(by='Importance', ascending=False)
+
+    return y_pred, weights_df
+
+def elastic_net_regression(X_train, X_test, y_train, y_test, features):
+    elastic_net_model = ElasticNet()
+    elastic_net_model.fit(X_train, y_train)
+    y_pred = elastic_net_model.predict(X_test)
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Elastic_Net': elastic_net_model.coef_
+    })
+    return y_pred, weights_df
+
+def random_forest_classification(X_train, X_test, y_train, y_test, features):
+    rf_model = RandomForestClassifier(random_state=67)
+    rf_model.fit(X_train, y_train)
+    y_pred = rf_model.predict(X_test)
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Importance': rf_model.feature_importances_
+    })
+    return y_pred, weights_df
+
+def gradient_boosting_regression(X_train, X_test, y_train, y_test, features):
+    gbm_model = GradientBoostingRegressor(random_state=67)
+    gbm_model.fit(X_train, y_train)
+    y_pred = gbm_model.predict(X_test)
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Importance': gbm_model.feature_importances_
+    }).sort_values(by='Importance', ascending=False)
+    return y_pred, weights_df
+
+def gradient_boosting_classification(X_train, X_test, y_train, y_test, features):
+    gbm_model = GradientBoostingClassifier()
+    gbm_model.fit(X_train, y_train)
+    y_pred = gbm_model.predict(X_test)
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Importance': gbm_model.feature_importances_
+    })
+    return y_pred, weights_df
+
+def decision_tree_classification(X_train, X_test, y_train, y_test, features):
+    dt_model = DecisionTreeClassifier()
+    dt_model.fit(X_train, y_train)
+    y_pred = dt_model.predict(X_test)
+    weights_df = pd.DataFrame({
+        'Feature': features,
+        'Importance': dt_model.feature_importances_
+    })
+    return y_pred, weights_df
+
+
+def svm_classification(X_train, X_test, y_train, y_test, features):
+    svm_model = SVC()
+    svm_model.fit(X_train, y_train)
+    y_pred = svm_model.predict(X_test)
+
+    return y_pred
 
 
 if __name__ == '__main__':
@@ -175,12 +250,20 @@ if __name__ == '__main__':
     # Data splitting
     X_train, X_test, y_train, y_test = split_data(df_features, features, target)
 
+    # Prep for binary classification methods
+    binary_y_train, binary_y_test = binary_preprocessing(y_train, y_test)
+
+
     # Baseline regression
     baseline = DummyRegressor(strategy='mean')
     baseline.fit(X_train, y_train)
     y_pred_baseline = baseline.predict(X_test)
     print(f"R^2 Score: {r2_score(y_test, y_pred_baseline):.4f}")
     print(f"MSE: {mean_squared_error(y_test, y_pred_baseline):.4f}")
+
+    regression_models = []
+    classification_models = []
+    tree_models = []
 
     # Linear regression
     y_pred_lin, weights_df_lin = linear_regression(X_train, X_test, y_train, y_test, features)
@@ -236,15 +319,14 @@ if __name__ == '__main__':
     print(weights_df_lasso)
 
     # Random Forest Regression
-    rf_model = RandomForestRegressor(random_state=67)
-    rf_model.fit(X_train, y_train)
-    y_pred_rf = rf_model.predict(X_test)
+    y_pred_rf, weights_df_rf = random_forest_regression(X_train, X_test, y_train, y_test,
+                                             features)
     print('***RANDOM FOREST REGRESSION***')
     print(f"R^2 Score: {r2_score(y_test, y_pred_rf):.4f}")
     print(f"MSE: {mean_squared_error(y_test, y_pred_rf):.4f}")
+    print(weights_df_rf)
 
-    # Prep for binary classification methods
-    binary_y_train, binary_y_test = binary_preprocessing(y_train, y_test)
+
     print(f'binary_y_train: {binary_y_train.shape}')
     print(f'binary_y_test: {binary_y_test.shape}')
 
@@ -254,6 +336,15 @@ if __name__ == '__main__':
     print(f"Accuracy: {accuracy_score(binary_y_test, y_pred_logistic):.4f}")
     print(f"F1 Score: {f1_score(binary_y_test, y_pred_logistic):.4f}")
     print(weights_df_logistic)
+
+    # Random Forest Classification
+    y_pred_rf_clf, weights_df_rf_clf = random_forest_classification(
+        X_train, X_test, binary_y_train, binary_y_test, features
+    )
+    print('***RANDOM FOREST CLASSIFICATION***')
+    print(f"Accuracy: {accuracy_score(binary_y_test, y_pred_rf_clf):.4f}")
+    print(f"F1 Score: {f1_score(binary_y_test, y_pred_rf_clf):.4f}")
+    print(weights_df_rf_clf)
 
     # Error analysis
     results_df = pd.DataFrame({
@@ -266,11 +357,18 @@ if __name__ == '__main__':
     print('***ERROR ANALYSIS: TOP 10 Largest Residuals***')
     print(results_df.sort_values(by='Abs_Residual', ascending=False).head(10))
 
-    # Decision tree
-    y_pred_dtree, weights_dtree = decision_tree(X_train, X_test, y_train, y_test, features)
-    print('***DECISION TREE***')
-    print(f"Accuracy: {accuracy_score(y_test, y_pred_dtree):.4f}")
-    print(f"F1 Score: {f1_score(y_test, y_pred_dtree):.4f}")
+    # Decision tree regression
+    y_pred_dtree, weights_dtree = decision_tree_regression(X_train, X_test, y_train, y_test, features)
+    print('***DECISION TREE REGRESSION***')
+    print(f"R^2 Score: {r2_score(y_test, y_pred_dtree):.4f}")
+    print(f"MSE: {mean_squared_error(y_test, y_pred_dtree):.4f}")
+
+    # Decision tree classification
+    y_pred_dtree_c, weights_dtree_c = decision_tree_classification(X_train, X_test, binary_y_train, binary_y_test, features)
+    print('***DECISION TREE CLASSIFICATION***')
+    print(f"Accuracy: {accuracy_score(binary_y_test, y_pred_rf_clf):.4f}")
+    print(f"F1 Score: {f1_score(binary_y_test, y_pred_rf_clf):.4f}")
+    print(weights_dtree_c)
 
     # Hyperparameter tuning on a few of the better models?
 
