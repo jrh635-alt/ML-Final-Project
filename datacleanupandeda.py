@@ -207,7 +207,7 @@ def decision_tree_classification(X_train, X_test, y_train, y_test, features):
 
 
 def svm_classification(X_train, X_test, y_train, y_test, features):
-    svm_model = SVC()
+    svm_model = SVC(probability=True)
     svm_model.fit(X_train, y_train)
     proba = svm_model.predict_proba(X_test)[:, 1]
     y_pred = svm_model.predict(X_test)
@@ -265,7 +265,7 @@ if __name__ == '__main__':
 
     regression_models = [linear_regression, sgd_regression, ridge_regression,
                          lasso_regression, random_forest_regression,
-                         elastic_net_regression, gradient_boosting_regression]
+                         gradient_boosting_regression]
     classification_models = [logistic_regression, decision_tree_classification,
                              random_forest_classification, gradient_boosting_classification,
                              svm_classification]
@@ -274,6 +274,12 @@ if __name__ == '__main__':
                    gradient_boosting_regression, gradient_boosting_classification]
 
     results_df_regression = pd.DataFrame(columns=['Actual', 'Predicted', 'importance/weight', 'R^2', 'MSE'])
+
+    y_pred_baseline = baseline_regression(X_train, X_test, y_train, y_test,
+                                          features)
+    results_df_regression.loc[baseline_regression] = [y_test, y_pred_baseline,
+                                                      None, r2_score(y_test, y_pred_baseline),
+                                                      mean_squared_error(y_test, y_pred_baseline)]
 
     for regression_model in regression_models:
         y_pred_reg, weights_df_reg = regression_model(X_train, X_test,
@@ -295,36 +301,33 @@ if __name__ == '__main__':
         y_pred_clf, weights_clf, proba = classification_model(X_train, X_test,
                                                        binary_y_train, binary_y_test,
                                                        features)
-        results_df_classification[classification_model] = [binary_y_test, y_pred_clf, weights_clf,
+        results_df_classification.loc[classification_model] = [binary_y_test, y_pred_clf, weights_clf,
                                                            f1_score(binary_y_test, y_pred_clf),
                                                            accuracy_score(binary_y_test, y_pred_clf),
                                                            precision_score(binary_y_test, y_pred_clf),
                                                            recall_score(binary_y_test, y_pred_clf),
                                                            roc_auc_score(y_test, proba)]
 
+
     results_df_tree = pd.DataFrame(columns=['Actual','Predicted', 'importance/weight',])
 
 
+
+    y_pred_elastic, weights_elastic = elastic_net_regression(X_train, X_test, y_train, y_test, features)
+    results_df_regression.loc[elastic_net_regression] = [y_test, y_pred_elastic, weights_elastic,
+                                                         r2_score(y_test, y_pred_elastic),
+                                                         mean_squared_error(y_test, y_pred_elastic)]
+
+
     results_dfs = [results_df_regression, results_df_classification, results_df_tree]
+
+
 
     for results_df in results_dfs:
         results_df['Residual'] = results_df['Actual'] - results_df['Predicted']
         results_df['Abs_Residual'] = results_df['Residual'].abs()
         print('***ERROR ANALYSIS: TOP 10 Largest Residuals***')
         print(results_df.sort_values(by='Abs_Residual', ascending=False).head(10))
-
-    # Decision tree regression
-    y_pred_dtree, weights_dtree = decision_tree_regression(X_train, X_test, y_train, y_test, features)
-    print('***DECISION TREE REGRESSION***')
-    print(f"R^2 Score: {r2_score(y_test, y_pred_dtree):.4f}")
-    print(f"MSE: {mean_squared_error(y_test, y_pred_dtree):.4f}")
-
-    # Decision tree classification
-    y_pred_dtree_c, weights_dtree_c = decision_tree_classification(X_train, X_test, binary_y_train, binary_y_test, features)
-    print('***DECISION TREE CLASSIFICATION***')
-    print(f"Accuracy: {accuracy_score(binary_y_test, y_pred_rf_clf):.4f}")
-    print(f"F1 Score: {f1_score(binary_y_test, y_pred_rf_clf):.4f}")
-    print(weights_dtree_c)
 
     # Hyperparameter tuning on a few of the better models?
 
