@@ -8,7 +8,7 @@ Created on Tue Apr 21 13:46:55 2026
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, ElasticNet
-from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, f1_score
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
@@ -53,6 +53,12 @@ def split_data(df_features, features, target):
     X_train_scaled = scaler.transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     return X_train_scaled, X_test_scaled, y_train, y_test
+
+def baseline_regression(X_train, X_test, y_train, y_test, features):
+    baseline = DummyRegressor(strategy='mean')
+    baseline.fit(X_train, y_train)
+    y_pred_baseline = baseline.predict(X_test)
+    return y_pred_baseline
 
 def linear_regression(X_train, X_test, y_train, y_test, features):
     ULRmodel = LinearRegression()
@@ -113,6 +119,7 @@ def logistic_regression(X_train, X_test, y_train, y_test, features):
     log_model = LogisticRegression()
     log_model.fit(X_train, y_train)
     y_pred = log_model.predict(X_test)
+    proba = log_model.predict_proba(X_test)[:, 1]
     weights_df = pd.DataFrame({
         'Feature': features,
         'Weight': log_model.coef_[0]
@@ -120,8 +127,7 @@ def logistic_regression(X_train, X_test, y_train, y_test, features):
     weights_df['Abs_Weight'] = weights_df['Weight'].abs()
     weights_df = weights_df.sort_values(by='Abs_Weight', ascending=False)
     weights_df = weights_df.drop(columns=['Abs_Weight'])
-    print(f"Intercept: {log_model.intercept_[0]}")
-    return y_pred, weights_df
+    return y_pred, weights_df, proba
 
 def decision_tree_regression(X_train, X_test, y_train, y_test, features):
     tree_model = DecisionTreeRegressor(random_state=67)
@@ -160,11 +166,12 @@ def random_forest_classification(X_train, X_test, y_train, y_test, features):
     rf_model = RandomForestClassifier(random_state=67)
     rf_model.fit(X_train, y_train)
     y_pred = rf_model.predict(X_test)
+    proba = rf_model.predict_proba(X_test)[:, 1]
     weights_df = pd.DataFrame({
         'Feature': features,
         'Importance': rf_model.feature_importances_
     })
-    return y_pred, weights_df
+    return y_pred, weights_df, proba
 
 def gradient_boosting_regression(X_train, X_test, y_train, y_test, features):
     gbm_model = GradientBoostingRegressor(random_state=67)
@@ -180,29 +187,32 @@ def gradient_boosting_classification(X_train, X_test, y_train, y_test, features)
     gbm_model = GradientBoostingClassifier()
     gbm_model.fit(X_train, y_train)
     y_pred = gbm_model.predict(X_test)
+    proba = gbm_model.predict_proba(X_test)[:, 1]
     weights_df = pd.DataFrame({
         'Feature': features,
         'Importance': gbm_model.feature_importances_
     })
-    return y_pred, weights_df
+    return y_pred, weights_df, proba
 
 def decision_tree_classification(X_train, X_test, y_train, y_test, features):
     dt_model = DecisionTreeClassifier()
     dt_model.fit(X_train, y_train)
     y_pred = dt_model.predict(X_test)
+    proba = dt_model.predict_proba(X_test)[:, 1]
     weights_df = pd.DataFrame({
         'Feature': features,
         'Importance': dt_model.feature_importances_
     })
-    return y_pred, weights_df
+    return y_pred, weights_df, proba
 
 
 def svm_classification(X_train, X_test, y_train, y_test, features):
     svm_model = SVC()
     svm_model.fit(X_train, y_train)
+    proba = svm_model.predict_proba(X_test)[:, 1]
     y_pred = svm_model.predict(X_test)
 
-    return y_pred
+    return y_pred, proba
 
 
 if __name__ == '__main__':
@@ -253,109 +263,55 @@ if __name__ == '__main__':
     # Prep for binary classification methods
     binary_y_train, binary_y_test = binary_preprocessing(y_train, y_test)
 
+    regression_models = [linear_regression, sgd_regression, ridge_regression,
+                         lasso_regression, random_forest_regression,
+                         elastic_net_regression, gradient_boosting_regression]
+    classification_models = [logistic_regression, decision_tree_classification,
+                             random_forest_classification, gradient_boosting_classification,
+                             svm_classification]
+    tree_models = [decision_tree_regression, decision_tree_classification,
+                   random_forest_regression, random_forest_classification,
+                   gradient_boosting_regression, gradient_boosting_classification]
 
-    # Baseline regression
-    baseline = DummyRegressor(strategy='mean')
-    baseline.fit(X_train, y_train)
-    y_pred_baseline = baseline.predict(X_test)
-    print(f"R^2 Score: {r2_score(y_test, y_pred_baseline):.4f}")
-    print(f"MSE: {mean_squared_error(y_test, y_pred_baseline):.4f}")
+    results_df_regression = pd.DataFrame(columns=['Actual', 'Predicted', 'importance/weight', 'R^2', 'MSE'])
 
-    regression_models = []
-    classification_models = []
-    tree_models = []
-
-    # Linear regression
-    y_pred_lin, weights_df_lin = linear_regression(X_train, X_test, y_train, y_test, features)
-
-    print('***LINEAR REGRESSION***')
-    print(f"R^2 Score: {r2_score(y_test, y_pred_lin):.4f}")
-    print(f"MSE: {mean_squared_error(y_test, y_pred_lin):.4f}")
-
-    weights_df_lin['Abs_Weight'] = weights_df_lin['Weight'].abs()
-    weights_df_lin = weights_df_lin.sort_values(by='Abs_Weight', ascending=False).drop(
-        columns=['Abs_Weight'])
-
-    print(weights_df_lin)
-
-    # SGD regression
-    y_pred_sgd, weights_df_sgd = sgd_regression(X_train, X_test, y_train, y_test, features)
-
-    print('***SGD REGRESSION***')
-    print(f"R^2 Score: {r2_score(y_test, y_pred_sgd):.4f}")
-    print(f"MSE: {mean_squared_error(y_test, y_pred_sgd):.4f}")
-
-    weights_df_sgd['Abs_Weight'] = weights_df_sgd['Weight'].abs()
-    weights_df_sgd = weights_df_sgd.sort_values(by='Abs_Weight', ascending=False).drop(
-        columns=['Abs_Weight'])
-
-    print(weights_df_sgd)
-
-    # Ridge Regression
-    y_pred_ridge, weights_df_ridge = ridge_regression(X_train, X_test, y_train,
-                                                y_test, features)
-
-    print('***RIDGE REGRESSION***')
-    print(f"R^2 Score: {r2_score(y_test, y_pred_ridge):.4f}")
-    print(f"MSE: {mean_squared_error(y_test, y_pred_ridge):.4f}")
-
-    weights_df_ridge['Abs_Weight'] = weights_df_ridge['Weight'].abs()
-    weights_df_ridge = weights_df_ridge.sort_values(by='Abs_Weight',
-                                                ascending=False).drop(
-        columns=['Abs_Weight'])
-
-    print(weights_df_ridge)
-
-    # Lasso Regression
-    y_pred_lasso, weights_df_lasso = lasso_regression(X_train, X_test, y_train, y_test, features)
-    print('***LASSO REGRESSION***')
-    print(f"R^2 Score: {r2_score(y_test, y_pred_lasso):.4f}")
-    print(f"MSE: {mean_squared_error(y_test, y_pred_lasso):.4f}")
-
-    weights_df_lasso['Abs_Weight'] = weights_df_lasso['Weight'].abs()
-    weights_df_lasso = weights_df_lasso.sort_values(by='Abs_Weight', ascending=False).drop(
-        columns=['Abs_Weight'])
-
-    print(weights_df_lasso)
-
-    # Random Forest Regression
-    y_pred_rf, weights_df_rf = random_forest_regression(X_train, X_test, y_train, y_test,
-                                             features)
-    print('***RANDOM FOREST REGRESSION***')
-    print(f"R^2 Score: {r2_score(y_test, y_pred_rf):.4f}")
-    print(f"MSE: {mean_squared_error(y_test, y_pred_rf):.4f}")
-    print(weights_df_rf)
+    for regression_model in regression_models:
+        y_pred_reg, weights_df_reg = regression_model(X_train, X_test,
+                                                       y_train, y_test,
+                                                       features)
+        weights_df_reg['Abs_Weight'] = weights_df_reg['Weight'].abs()
+        weights_df_reg= weights_df_reg.sort_values(by='Abs_Weight',
+                                                    ascending=False).drop(
+            columns=['Abs_Weight'])
+        results_df_regression.loc[regression_model] = [y_test, y_pred_reg, weights_df_reg,
+                                                       r2_score(y_test, y_pred_reg),
+                                                       mean_squared_error(y_test, y_pred_reg)]
 
 
-    print(f'binary_y_train: {binary_y_train.shape}')
-    print(f'binary_y_test: {binary_y_test.shape}')
+    results_df_classification = pd.DataFrame(columns=['Actual','Predicted', 'importance/weight',
+                                                      'F', 'Accuracy', 'Precision',
+                                                      'Recall', 'ROC'])
+    for classification_model in classification_models:
+        y_pred_clf, weights_clf, proba = classification_model(X_train, X_test,
+                                                       binary_y_train, binary_y_test,
+                                                       features)
+        results_df_classification[classification_model] = [binary_y_test, y_pred_clf, weights_clf,
+                                                           f1_score(binary_y_test, y_pred_clf),
+                                                           accuracy_score(binary_y_test, y_pred_clf),
+                                                           precision_score(binary_y_test, y_pred_clf),
+                                                           recall_score(binary_y_test, y_pred_clf),
+                                                           roc_auc_score(y_test, proba)]
 
-    # Logistic regression
-    y_pred_logistic, weights_df_logistic = logistic_regression(X_train, X_test, binary_y_train, binary_y_test, features)
-    print('***LOGISTIC REGRESSION***')
-    print(f"Accuracy: {accuracy_score(binary_y_test, y_pred_logistic):.4f}")
-    print(f"F1 Score: {f1_score(binary_y_test, y_pred_logistic):.4f}")
-    print(weights_df_logistic)
+    results_df_tree = pd.DataFrame(columns=['Actual','Predicted', 'importance/weight',])
 
-    # Random Forest Classification
-    y_pred_rf_clf, weights_df_rf_clf = random_forest_classification(
-        X_train, X_test, binary_y_train, binary_y_test, features
-    )
-    print('***RANDOM FOREST CLASSIFICATION***')
-    print(f"Accuracy: {accuracy_score(binary_y_test, y_pred_rf_clf):.4f}")
-    print(f"F1 Score: {f1_score(binary_y_test, y_pred_rf_clf):.4f}")
-    print(weights_df_rf_clf)
 
-    # Error analysis
-    results_df = pd.DataFrame({
-        'Actual': y_test,
-        'Predicted': y_pred_lin
-    })
-    
-    results_df['Residual'] = results_df['Actual'] - results_df['Predicted']
-    results_df['Abs_Residual'] = results_df['Residual'].abs()
-    print('***ERROR ANALYSIS: TOP 10 Largest Residuals***')
-    print(results_df.sort_values(by='Abs_Residual', ascending=False).head(10))
+    results_dfs = [results_df_regression, results_df_classification, results_df_tree]
+
+    for results_df in results_dfs:
+        results_df['Residual'] = results_df['Actual'] - results_df['Predicted']
+        results_df['Abs_Residual'] = results_df['Residual'].abs()
+        print('***ERROR ANALYSIS: TOP 10 Largest Residuals***')
+        print(results_df.sort_values(by='Abs_Residual', ascending=False).head(10))
 
     # Decision tree regression
     y_pred_dtree, weights_dtree = decision_tree_regression(X_train, X_test, y_train, y_test, features)
