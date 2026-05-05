@@ -158,7 +158,7 @@ def elastic_net_regression(X_train, X_test, y_train, y_test, features):
     y_pred = elastic_net_model.predict(X_test)
     weights_df = pd.DataFrame({
         'Feature': features,
-        'Elastic_Net': elastic_net_model.coef_
+        'Weight': elastic_net_model.coef_
     })
     return y_pred, weights_df
 
@@ -212,7 +212,7 @@ def svm_classification(X_train, X_test, y_train, y_test, features):
     proba = svm_model.predict_proba(X_test)[:, 1]
     y_pred = svm_model.predict(X_test)
 
-    return y_pred, proba
+    return y_pred, None, proba
 
 
 if __name__ == '__main__':
@@ -306,7 +306,7 @@ if __name__ == '__main__':
                                                            accuracy_score(binary_y_test, y_pred_clf),
                                                            precision_score(binary_y_test, y_pred_clf),
                                                            recall_score(binary_y_test, y_pred_clf),
-                                                           roc_auc_score(y_test, proba)]
+                                                           roc_auc_score(binary_y_test, proba)]
 
 
     results_df_tree = pd.DataFrame(columns=['Actual','Predicted', 'importance/weight',])
