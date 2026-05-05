@@ -8,7 +8,7 @@ Created on Tue Apr 21 13:46:55 2026
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, ElasticNet
-from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, f1_score, precision_score, recall_score, roc_auc_score, roc_curve
 from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
@@ -22,6 +22,9 @@ import seaborn as sns
 from sklearn.svm import SVC
 from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import RandomForestRegressor
+import os
+
+
 
 def read_data(data_file_path, headers_file_path, features_file_path):
     df_data = pd.read_csv(data_file_path)
@@ -215,6 +218,113 @@ def svm_classification(X_train, X_test, y_train, y_test, features):
     return y_pred, None, proba
 
 
+def plot_regression_metrics(results_df_regression):
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+    r2_sorted = results_df_regression['R^2'].sort_values(ascending=False)
+    mse_sorted = results_df_regression['MSE'].sort_values(ascending=True)
+
+    axes[0].barh(r2_sorted.index, r2_sorted.values)
+    axes[0].set_title('R² by Model')
+    axes[0].set_xlabel('R²')
+
+    axes[1].barh(mse_sorted.index, mse_sorted.values)
+    axes[1].set_title('MSE by Model')
+    axes[1].set_xlabel('MSE')
+
+    plt.tight_layout()
+    plt.savefig('plots/regression_metrics.png')
+    plt.show()
+
+
+def plot_classification_metrics(results_df_classification):
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+
+    roc_sorted = results_df_classification['ROC-AUC'].sort_values(ascending=False)
+    f1_sorted = results_df_classification['F'].sort_values(ascending=False)
+
+    axes[0].barh(roc_sorted.index, roc_sorted.values)
+    axes[0].set_title('ROC-AUC by Model')
+    axes[0].set_xlabel('ROC-AUC')
+
+    axes[1].barh(f1_sorted.index, f1_sorted.values)
+    axes[1].set_title('F1 by Model')
+    axes[1].set_xlabel('F1')
+
+    for model_name in results_df_classification.index:
+        actual = results_df_classification.loc[model_name, 'Actual']
+        proba = results_df_classification.loc[model_name, 'Proba']
+        rocauc = results_df_classification.loc[model_name, 'ROC-AUC']
+        fpr, tpr, _ = roc_curve(actual, proba)
+        axes[2].plot(fpr, tpr, label=f'{model_name} (AUC={rocauc:.3f})')
+
+    axes[2].plot([0, 1], [0, 1], 'k--', label='Random classifier')
+    axes[2].set_xlabel('False Positive Rate')
+    axes[2].set_ylabel('True Positive Rate')
+    axes[2].set_title('ROC Curves')
+    axes[2].legend(loc='lower right', fontsize=7)
+
+    plt.tight_layout()
+    plt.savefig('plots/classification_metrics.png')
+    plt.show()
+
+
+def plot_feature_importance(results_df, model_name):
+    weights_df = results_df.loc[model_name, 'importance/weight']
+    if weights_df is None:
+        return
+
+    weight_col = 'Weight' if 'Weight' in weights_df.columns else 'Importance'
+
+    plt.figure(figsize=(10, 8))
+    colors = ['fuchsia' if w < 0 else 'green' for w in weights_df[weight_col]]
+    plt.barh(weights_df['Feature'], weights_df[weight_col], color=colors)
+    plt.title(f'Feature Importance/Weight: {model_name}')
+    plt.xlabel(weight_col)
+    plt.tight_layout()
+    plt.savefig(f'plots/importance_{model_name}.png')
+    plt.show()
+
+
+def plot_residuals(results_df_regression):
+    fig, axes = plt.subplots(3, 3, figsize=(16, 12))
+    axes = axes.flatten()
+
+    for i, model_name in enumerate(results_df_regression.index):
+        actual = results_df_regression.loc[model_name, 'Actual']
+        predicted = results_df_regression.loc[model_name, 'Predicted']
+        residuals = actual - predicted
+
+        axes[i].scatter(predicted, residuals, alpha=0.3, s=10)
+        axes[i].axhline(y=0, color='fuchsia', linestyle='--')
+        axes[i].set_title(model_name)
+        axes[i].set_xlabel('Predicted')
+        axes[i].set_ylabel('Residual')
+
+    plt.tight_layout()
+    plt.savefig('plots/residuals.png')
+    plt.show()
+
+
+def plot_actual_vs_predicted(results_df_regression):
+    fig, axes = plt.subplots(3, 3, figsize=(16, 12))
+    axes = axes.flatten()
+
+    for i, model_name in enumerate(results_df_regression.index):
+        actual = results_df_regression.loc[model_name, 'Actual']
+        predicted = results_df_regression.loc[model_name, 'Predicted']
+
+        axes[i].scatter(actual, predicted, alpha=0.3, s=10)
+        axes[i].plot([actual.min(), actual.max()],
+                     [actual.min(), actual.max()], 'r--')
+        axes[i].set_title(model_name)
+        axes[i].set_xlabel('Actual')
+        axes[i].set_ylabel('Predicted')
+
+    plt.tight_layout()
+    plt.savefig('plots/actual_vs_predicted.png')
+    plt.show()
+
 if __name__ == '__main__':
     # File paths
     data_file_path = 'data/uncleaneddata.csv'
@@ -240,11 +350,13 @@ if __name__ == '__main__':
     print(f'df_features: \n {df_features.head()}')
     print(f'df_features.shape: {df_features.shape}')
 
+    '''
     # Plotting target distribution to check for skewness
     plt.figure()
     sns.histplot(df_features[target])
     plt.title('Distribution of Target Variable')
     plt.show()
+    '''
 
     '''
     # Histograms to visualize spread within each feature
@@ -270,15 +382,10 @@ if __name__ == '__main__':
                              random_forest_classification, gradient_boosting_classification]
     tree_models = [decision_tree_regression, decision_tree_classification,
                    random_forest_regression, random_forest_classification,
-                   gradient_boosting_regression, gradient_boosting_classification]
+                   gradient_boosting_regression, gradient_boosting_classification,
+                   svm_classification]
 
     results_df_regression = pd.DataFrame(columns=['Actual', 'Predicted', 'importance/weight', 'R^2', 'MSE'])
-
-    y_pred_baseline = baseline_regression(X_train, X_test, y_train, y_test,
-                                          features)
-    results_df_regression.loc[baseline_regression] = [y_test, y_pred_baseline,
-                                                      None, r2_score(y_test, y_pred_baseline),
-                                                      mean_squared_error(y_test, y_pred_baseline)]
 
     for regression_model in regression_models:
         y_pred_reg, weights_df_reg = regression_model(X_train, X_test,
@@ -297,7 +404,7 @@ if __name__ == '__main__':
 
     results_df_classification = pd.DataFrame(columns=['Actual','Predicted', 'importance/weight',
                                                       'F', 'Accuracy', 'Precision',
-                                                      'Recall', 'ROC'])
+                                                      'Recall', 'ROC-AUC', 'Proba'])
     for classification_model in classification_models:
         y_pred_clf, weights_clf, proba = classification_model(X_train, X_test,
                                                        binary_y_train, binary_y_test,
@@ -307,7 +414,8 @@ if __name__ == '__main__':
                                                            accuracy_score(binary_y_test, y_pred_clf),
                                                            precision_score(binary_y_test, y_pred_clf),
                                                            recall_score(binary_y_test, y_pred_clf),
-                                                           roc_auc_score(binary_y_test, proba)]
+                                                           roc_auc_score(binary_y_test, proba),
+                                                                        proba]
 
 
     y_pred_elastic, weights_elastic = elastic_net_regression(X_train, X_test, y_train, y_test, features)
@@ -315,35 +423,56 @@ if __name__ == '__main__':
                                                          r2_score(y_test, y_pred_elastic),
                                                          mean_squared_error(y_test, y_pred_elastic)]
 
-    y_pred_svm, proba_svm = svm_classification(X_train, X_test, binary_y_train, binary_y_test, features)
-    results_df_classification.loc[svm_classification.__name__] = [binary_y_test, y_pred_svm,
-                                                           None,
-                                                           f1_score(binary_y_test, y_pred_svm),
-                                                           accuracy_score(binary_y_test, y_pred_svm),
-                                                           precision_score(binary_y_test, y_pred_svm),
-                                                           recall_score(binary_y_test, y_pred_svm),
-                                                           roc_auc_score(binary_y_test, proba_svm)]
-
     y_pred_baseline = baseline_regression(X_train, X_test, y_train, y_test, features)
-    results_df_regression.loc['baseline_regression'] = [y_test, y_pred_baseline, None,
+    results_df_regression.loc[baseline_regression.__name__] = [y_test, y_pred_baseline, None,
                                                         r2_score(y_test, y_pred_baseline),
                                                         mean_squared_error(y_test, y_pred_baseline)]
 
 
     results_dfs = [results_df_regression, results_df_classification]
 
+    print('***REGRESSION STATS***')
+    print(results_df_regression[['R^2', 'MSE']].sort_values(by='R^2', ascending=False))
+
+    print('***CLASSIFICATION STATS***')
+    print(results_df_classification[['F', 'Accuracy', 'Precision', 'Recall', 'ROC-AUC']].sort_values(by='ROC-AUC', ascending=False))
+
+    pd.set_option('display.max_columns', None)
+    print('***REGRESSION DF***')
+    print(results_df_regression.head(10))
+
+    print('***CLASSIFICATION DF***')
+    print(results_df_classification.head(10))
+
+    # Plots - for stats
+    os.makedirs('plots', exist_ok=True)
+    plot_regression_metrics(results_df_regression)
+    plot_classification_metrics(results_df_classification)
+    plot_actual_vs_predicted(results_df_regression)
+
+    # Plots - features
+    # Importances are always positive so we have them in green,
+    # The line really only tells us about weights
+    # skip baseline and svm
+    for model_name in results_df_regression.index:
+        plot_feature_importance(results_df_regression, model_name)
+
+    for model_name in results_df_classification.index:
+        plot_feature_importance(results_df_classification, model_name)
 
 
-    for results_df in results_dfs:
+    # plot residuals - predicted on x, actual on y
+    plot_residuals(results_df_regression)
+
+    '''for results_df in results_dfs:
         results_df['Residual'] = results_df['Actual'] - results_df['Predicted']
         results_df['Abs_Residual'] = results_df['Residual'].abs()
         print('***ERROR ANALYSIS: TOP 10 Largest Residuals***')
-        print(results_df.sort_values(by='Abs_Residual', ascending=False).head(10))
+        print(results_df.sort_values(by='Abs_Residual', ascending=False).head(10))'''
 
     # Hyperparameter tuning on a few of the better models?
 
 
-    # Plot residuals at some point?
 
 
 
