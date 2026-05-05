@@ -265,10 +265,9 @@ if __name__ == '__main__':
 
     regression_models = [linear_regression, sgd_regression, ridge_regression,
                          lasso_regression, random_forest_regression,
-                         gradient_boosting_regression]
+                         gradient_boosting_regression, decision_tree_regression]
     classification_models = [logistic_regression, decision_tree_classification,
-                             random_forest_classification, gradient_boosting_classification,
-                             svm_classification]
+                             random_forest_classification, gradient_boosting_classification]
     tree_models = [decision_tree_regression, decision_tree_classification,
                    random_forest_regression, random_forest_classification,
                    gradient_boosting_regression, gradient_boosting_classification]
@@ -283,15 +282,17 @@ if __name__ == '__main__':
 
     for regression_model in regression_models:
         y_pred_reg, weights_df_reg = regression_model(X_train, X_test,
-                                                       y_train, y_test,
-                                                       features)
-        weights_df_reg['Abs_Weight'] = weights_df_reg['Weight'].abs()
-        weights_df_reg= weights_df_reg.sort_values(by='Abs_Weight',
-                                                    ascending=False).drop(
-            columns=['Abs_Weight'])
-        results_df_regression.loc[regression_model] = [y_test, y_pred_reg, weights_df_reg,
-                                                       r2_score(y_test, y_pred_reg),
-                                                       mean_squared_error(y_test, y_pred_reg)]
+                                                      y_train, y_test,
+                                                      features)
+
+        weight_col = 'Weight' if 'Weight' in weights_df_reg.columns else 'Importance'
+        weights_df_reg['Abs_Weight'] = weights_df_reg[weight_col].abs()
+        weights_df_reg = weights_df_reg.sort_values(by='Abs_Weight', ascending=False).drop(columns=['Abs_Weight'])
+
+        results_df_regression.loc[regression_model.__name__] = [y_test, y_pred_reg,
+                                                                weights_df_reg,
+                                                                r2_score(y_test, y_pred_reg),
+                                                                mean_squared_error(y_test,y_pred_reg)]
 
 
     results_df_classification = pd.DataFrame(columns=['Actual','Predicted', 'importance/weight',
@@ -301,7 +302,7 @@ if __name__ == '__main__':
         y_pred_clf, weights_clf, proba = classification_model(X_train, X_test,
                                                        binary_y_train, binary_y_test,
                                                        features)
-        results_df_classification.loc[classification_model] = [binary_y_test, y_pred_clf, weights_clf,
+        results_df_classification.loc[classification_model.__name__] = [binary_y_test, y_pred_clf, weights_clf,
                                                            f1_score(binary_y_test, y_pred_clf),
                                                            accuracy_score(binary_y_test, y_pred_clf),
                                                            precision_score(binary_y_test, y_pred_clf),
@@ -309,17 +310,27 @@ if __name__ == '__main__':
                                                            roc_auc_score(binary_y_test, proba)]
 
 
-    results_df_tree = pd.DataFrame(columns=['Actual','Predicted', 'importance/weight',])
-
-
-
     y_pred_elastic, weights_elastic = elastic_net_regression(X_train, X_test, y_train, y_test, features)
-    results_df_regression.loc[elastic_net_regression] = [y_test, y_pred_elastic, weights_elastic,
+    results_df_regression.loc[elastic_net_regression.__name__] = [y_test, y_pred_elastic, weights_elastic,
                                                          r2_score(y_test, y_pred_elastic),
                                                          mean_squared_error(y_test, y_pred_elastic)]
 
+    y_pred_svm, proba_svm = svm_classification(X_train, X_test, binary_y_train, binary_y_test, features)
+    results_df_classification.loc[svm_classification.__name__] = [binary_y_test, y_pred_svm,
+                                                           None,
+                                                           f1_score(binary_y_test, y_pred_svm),
+                                                           accuracy_score(binary_y_test, y_pred_svm),
+                                                           precision_score(binary_y_test, y_pred_svm),
+                                                           recall_score(binary_y_test, y_pred_svm),
+                                                           roc_auc_score(binary_y_test, proba_svm)]
 
-    results_dfs = [results_df_regression, results_df_classification, results_df_tree]
+    y_pred_baseline = baseline_regression(X_train, X_test, y_train, y_test, features)
+    results_df_regression.loc['baseline_regression'] = [y_test, y_pred_baseline, None,
+                                                        r2_score(y_test, y_pred_baseline),
+                                                        mean_squared_error(y_test, y_pred_baseline)]
+
+
+    results_dfs = [results_df_regression, results_df_classification]
 
 
 
