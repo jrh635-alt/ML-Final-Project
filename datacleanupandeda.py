@@ -328,6 +328,35 @@ def plot_actual_vs_predicted(results_df_regression):
     plt.savefig('plots/actual_vs_predicted.png')
     plt.show()
 
+def hyperparameter_tuning(results_df, model_name, model_function,
+                          tuning_times, params, grid_or_random, reg_or_class):
+    t_start = time.perf_counter()
+    if grid_or_random == "grid":
+        search = GridSearchCV(model_function(random_state=67), params,
+                               cv=5, n_jobs=-1, scoring='r2')
+    elif grid_or_random == "random":
+        search = RandomizedSearchCV(model_function(random_state=67),
+                                    params, n_iter=20, cv=5, n_jobs=-1,
+                                    scoring='r2', random_state=67)
+
+    search.fit(X_train, y_train)
+    tuning_times[f'{model_name}_{grid_or_random}'] = time.perf_counter() - t_start
+
+    best_model = search.best_estimator_
+
+    best_model.fit(X_train, y_train)
+    y_pred_retrain = best_model.predict(X_test)
+    imp_df = pd.DataFrame({'Feature': features,
+                           'Importance': best_model.feature_importances_})
+    imp_df['Abs_Weight'] = imp_df['Importance'].abs()
+    imp_df = imp_df.sort_values('Abs_Weight', ascending=False).drop(
+        columns='Abs_Weight')
+    results_df.loc[f'{model_name} {grid_or_random} search'] = [y_test, y_pred_retrain, imp_df,
+                                                                          r2_score(y_test, y_pred_retrain),
+                                                                          mean_squared_error(y_test, y_pred_retrain)]
+    return tuning_times, results_df
+
+
 if __name__ == '__main__':
     # File paths
     data_file_path = 'data/uncleaneddata.csv'
@@ -480,73 +509,56 @@ if __name__ == '__main__':
     # Gradient boosting regression
     # Grid search
     # log start time
-    t_start = time.perf_counter()
-    gbr = GradientBoostingRegressor(random_state=67)
-    params = {
+    gbr_params_grid = {
         'n_estimators': [100, 200],
         'learning_rate': [0.01, 0.1],
         'max_depth': [3, 5],
         'subsample': [0.8, 1.0]
     }
 
-    grid_search = GridSearchCV(GradientBoostingRegressor(random_state=67),
-                               params, cv=5, n_jobs=-1, scoring='r2')
-    grid_search.fit(X_train, y_train)
-    # log end time
-    tuning_times['gbr_grid'] = time.perf_counter() - t_start
-
-    print(f"GBR Grid: {grid_search.best_params_}")
-
-    best_params = grid_search.best_params_
-    best_model = grid_search.best_estimator_
-
-    best_model.fit(X_train, y_train)
-    y_pred_gbr_retrain = best_model.predict(X_test)
-    imp_df = pd.DataFrame({'Feature': features,
-                           'Importance': best_model.feature_importances_})
-    imp_df['Abs_Weight'] = imp_df['Importance'].abs()
-    imp_df = imp_df.sort_values('Abs_Weight', ascending=False).drop(
-        columns='Abs_Weight')
-    results_df_regression.loc['gbr grid search'] = [y_test, y_pred_gbr_retrain, imp_df,
-                                                                       r2_score(y_test, y_pred_gbr_retrain),
-                                                                       mean_squared_error(y_test, y_pred_gbr_retrain)]
+    tuning_times, results_df_regression = hyperparameter_tuning(results_df_regression,
+                                                                'gbr', GradientBoostingRegressor,
+                                                                tuning_times, gbr_params_grid, 'grid',
+                                                                'reg')
 
     # Random search
-    t_start = time.perf_counter()
-    params = {
+    gbr_params_random = {
         'n_estimators': [50, 100, 200, 300],
         'learning_rate': [0.005, 0.01, 0.05, 0.1, 0.2],
         'max_depth': [2, 3, 4, 5, 6],
         'subsample': [0.6, 0.7, 0.8, 0.9, 1.0],
         'min_samples_split': [2, 5, 10],
     }
-    random_search = RandomizedSearchCV(GradientBoostingRegressor(random_state=67),
-                                       params, n_iter=20, cv=5, n_jobs=-1,
-                                       scoring='r2', random_state=67)
-    random_search.fit(X_train, y_train)
-    tuning_times['gbr_random'] = time.perf_counter() - t_start
-
-    print(f"GBR Random: {random_search.best_params_}")
-
-    best_params = random_search.best_params_
-    best_model = random_search.best_estimator_
-
-    best_model.fit(X_train, y_train)
-    y_pred = best_model.predict(X_test)
-    imp_df = pd.DataFrame({'Feature': features,
-                           'Importance': best_model.feature_importances_})
-    imp_df['Abs_Weight'] = imp_df['Importance'].abs()
-    imp_df = imp_df.sort_values('Abs_Weight', ascending=False).drop(
-        columns='Abs_Weight')
-    results_df_regression.loc['gbr random search'] = [y_test, y_pred, imp_df,
-                                                    r2_score(y_test, y_pred),
-                                                    mean_squared_error(y_test, y_pred)]
+    tuning_times, results_df_regression = hyperparameter_tuning(results_df_regression, 'gbr',
+                                                                GradientBoostingRegressor,
+                                                                tuning_times, gbr_params_random,
+                                                                'random', 'reg')
 
 
     # Random forest regression
+    rfr_grid_params = {
+        'n_estimators': [100, 200],
+        'max_depth': [None, 10, 20],
+        'max_features': ['sqrt', 'log2'],
+        'min_samples_split': [2, 5],
+    }
+    tuning_times, results_df_regression = hyperparameter_tuning(results_df_regression, 'rfr',
+                                                                RandomForestRegressor,
+                                                                tuning_times, rfr_grid_params,
+                                                                'grid', 'reg')
 
-
-
+    rfr_random_params = {
+        'n_estimators': [50, 100, 200, 300, 500],
+        'max_depth': [None, 5, 10, 15, 20, 30],
+        'max_features': ['sqrt', 'log2', 0.3, 0.5],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4],
+    }
+    tuning_times, results_df_regression = hyperparameter_tuning(
+        results_df_regression, 'rfr',
+        RandomForestRegressor,
+        tuning_times, rfr_random_params,
+        'random', 'reg')
 
     # Gradient boosting classification
 
