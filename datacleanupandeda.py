@@ -24,7 +24,8 @@ from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import RandomForestRegressor
 import os
 from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+import time
 
 
 
@@ -475,7 +476,11 @@ if __name__ == '__main__':
         print(results_df.sort_values(by='Abs_Residual', ascending=False).head(10))'''
 
     # Hyperparameter tuning on a few of the better models?
+    tuning_times = {}
     # Gradient boosting regression
+    # Grid search
+    # log start time
+    t_start = time.perf_counter()
     gbr = GradientBoostingRegressor(random_state=67)
     params = {
         'n_estimators': [100, 200],
@@ -484,33 +489,62 @@ if __name__ == '__main__':
         'subsample': [0.8, 1.0]
     }
 
-    grid_search = GridSearchCV(estimator=gbr, param_grid=params, cv=5,
-                               n_jobs=-1)
+    grid_search = GridSearchCV(GradientBoostingRegressor(random_state=67),
+                               params, cv=5, n_jobs=-1, scoring='r2')
     grid_search.fit(X_train, y_train)
+    # log end time
+    tuning_times['gbr_grid'] = time.perf_counter() - t_start
 
-    print(f"Best Parameters: {grid_search.best_params_}")
+    print(f"GBR Grid: {grid_search.best_params_}")
 
     best_params = grid_search.best_params_
     best_model = grid_search.best_estimator_
 
     best_model.fit(X_train, y_train)
     y_pred_gbr_retrain = best_model.predict(X_test)
-    weights_df_gbr_retrain = pd.DataFrame({
-        'Feature': features,
-        'Importance': best_model.feature_importances_
-    }).sort_values(by='Importance', ascending=False)
+    imp_df = pd.DataFrame({'Feature': features,
+                           'Importance': best_model.feature_importances_})
+    imp_df['Abs_Weight'] = imp_df['Importance'].abs()
+    imp_df = imp_df.sort_values('Abs_Weight', ascending=False).drop(
+        columns='Abs_Weight')
+    results_df_regression.loc['gbr grid search'] = [y_test, y_pred_gbr_retrain, imp_df,
+                                                                       r2_score(y_test, y_pred_gbr_retrain),
+                                                                       mean_squared_error(y_test, y_pred_gbr_retrain)]
 
-    weight_col = 'Weight' if 'Weight' in weights_df_gbr_retrain.columns else 'Importance'
-    weights_df_gbr_retrain['Abs_Weight'] = weights_df_gbr_retrain[weight_col].abs()
-    weights_df_gbr_retrain = weights_df_gbr_retrain.sort_values(by='Abs_Weight',
-                                                ascending=False).drop(
-        columns=['Abs_Weight'])
+    # Random search
+    t_start = time.perf_counter()
+    params = {
+        'n_estimators': [50, 100, 200, 300],
+        'learning_rate': [0.005, 0.01, 0.05, 0.1, 0.2],
+        'max_depth': [2, 3, 4, 5, 6],
+        'subsample': [0.6, 0.7, 0.8, 0.9, 1.0],
+        'min_samples_split': [2, 5, 10],
+    }
+    random_search = RandomizedSearchCV(GradientBoostingRegressor(random_state=67),
+                                       params, n_iter=20, cv=5, n_jobs=-1,
+                                       scoring='r2', random_state=67)
+    random_search.fit(X_train, y_train)
+    tuning_times['gbr_random'] = time.perf_counter() - t_start
 
-    results_df_regression.loc['gradient boosting regression tuned'] = [y_test, y_pred_reg, weights_df_gbr_retrain,
-                                                                       r2_score(y_test, y_pred_reg),
-                                                                       mean_squared_error(y_test, y_pred_reg)]
+    print(f"GBR Random: {random_search.best_params_}")
+
+    best_params = random_search.best_params_
+    best_model = random_search.best_estimator_
+
+    best_model.fit(X_train, y_train)
+    y_pred = best_model.predict(X_test)
+    imp_df = pd.DataFrame({'Feature': features,
+                           'Importance': best_model.feature_importances_})
+    imp_df['Abs_Weight'] = imp_df['Importance'].abs()
+    imp_df = imp_df.sort_values('Abs_Weight', ascending=False).drop(
+        columns='Abs_Weight')
+    results_df_regression.loc['gbr random search'] = [y_test, y_pred, imp_df,
+                                                    r2_score(y_test, y_pred),
+                                                    mean_squared_error(y_test, y_pred)]
+
 
     # Random forest regression
+
 
 
 
@@ -518,39 +552,14 @@ if __name__ == '__main__':
 
 
     # Look at stats and plots again
-    print('***REGRESSION STATS***')
+    print('\n***REGRESSION STATS (including tuned)***')
     print(results_df_regression[['R^2', 'MSE']].sort_values(by='R^2',
                                                             ascending=False))
 
-    print('***CLASSIFICATION STATS***')
+    print('\n***CLASSIFICATION STATS (including tuned)***')
     print(results_df_classification[
-              ['F', 'Accuracy', 'Precision', 'Recall', 'ROC-AUC']].sort_values(
-        by='ROC-AUC', ascending=False))
-
-    print('***REGRESSION DF***')
-    print(results_df_regression.head(10))
-
-    print('***CLASSIFICATION DF***')
-    print(results_df_classification.head(10))
-
-    # Plots - for stats
-    os.makedirs('plots', exist_ok=True)
-    plot_regression_metrics(results_df_regression)
-    plot_classification_metrics(results_df_classification)
-    plot_actual_vs_predicted(results_df_regression)
-
-    # Plots - features
-    # Importances are always positive so we have them in green,
-    # The line really only tells us about weights
-    # skip baseline and svm
-    for model_name in results_df_regression.index:
-        plot_feature_importance(results_df_regression, model_name)
-
-    for model_name in results_df_classification.index:
-        plot_feature_importance(results_df_classification, model_name)
-
-    # plot residuals - predicted on x, actual on y
-    plot_residuals(results_df_regression)
+              ['F', 'Accuracy', 'Precision', 'Recall', 'ROC-AUC']
+          ].sort_values(by='ROC-AUC', ascending=False))
 
 
 
