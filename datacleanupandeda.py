@@ -23,6 +23,8 @@ from sklearn.svm import SVC
 from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import RandomForestRegressor
 import os
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.model_selection import GridSearchCV
 
 
 
@@ -430,14 +432,16 @@ if __name__ == '__main__':
 
 
     results_dfs = [results_df_regression, results_df_classification]
+    pd.set_option('display.max_columns', None)
 
     print('***REGRESSION STATS***')
     print(results_df_regression[['R^2', 'MSE']].sort_values(by='R^2', ascending=False))
 
+
     print('***CLASSIFICATION STATS***')
     print(results_df_classification[['F', 'Accuracy', 'Precision', 'Recall', 'ROC-AUC']].sort_values(by='ROC-AUC', ascending=False))
 
-    pd.set_option('display.max_columns', None)
+
     print('***REGRESSION DF***')
     print(results_df_regression.head(10))
 
@@ -471,6 +475,84 @@ if __name__ == '__main__':
         print(results_df.sort_values(by='Abs_Residual', ascending=False).head(10))'''
 
     # Hyperparameter tuning on a few of the better models?
+    # Gradient boosting regression
+    gbr = GradientBoostingRegressor(random_state=67)
+    params = {
+        'n_estimators': [100, 200],
+        'learning_rate': [0.01, 0.1],
+        'max_depth': [3, 5],
+        'subsample': [0.8, 1.0]
+    }
+
+    grid_search = GridSearchCV(estimator=gbr, param_grid=params, cv=5,
+                               n_jobs=-1)
+    grid_search.fit(X_train, y_train)
+
+    print(f"Best Parameters: {grid_search.best_params_}")
+
+    best_params = grid_search.best_params_
+    best_model = grid_search.best_estimator_
+
+    best_model.fit(X_train, y_train)
+    y_pred_gbr_retrain = best_model.predict(X_test)
+    weights_df_gbr_retrain = pd.DataFrame({
+        'Feature': features,
+        'Importance': best_model.feature_importances_
+    }).sort_values(by='Importance', ascending=False)
+
+    weight_col = 'Weight' if 'Weight' in weights_df_gbr_retrain.columns else 'Importance'
+    weights_df_gbr_retrain['Abs_Weight'] = weights_df_gbr_retrain[weight_col].abs()
+    weights_df_gbr_retrain = weights_df_gbr_retrain.sort_values(by='Abs_Weight',
+                                                ascending=False).drop(
+        columns=['Abs_Weight'])
+
+    results_df_regression.loc['gradient boosting regression tuned'] = [y_test, y_pred_reg, weights_df_gbr_retrain,
+                                                                       r2_score(y_test, y_pred_reg),
+                                                                       mean_squared_error(y_test, y_pred_reg)]
+
+    # Random forest regression
+
+
+
+    # Gradient boosting classification
+
+
+    # Look at stats and plots again
+    print('***REGRESSION STATS***')
+    print(results_df_regression[['R^2', 'MSE']].sort_values(by='R^2',
+                                                            ascending=False))
+
+    print('***CLASSIFICATION STATS***')
+    print(results_df_classification[
+              ['F', 'Accuracy', 'Precision', 'Recall', 'ROC-AUC']].sort_values(
+        by='ROC-AUC', ascending=False))
+
+    print('***REGRESSION DF***')
+    print(results_df_regression.head(10))
+
+    print('***CLASSIFICATION DF***')
+    print(results_df_classification.head(10))
+
+    # Plots - for stats
+    os.makedirs('plots', exist_ok=True)
+    plot_regression_metrics(results_df_regression)
+    plot_classification_metrics(results_df_classification)
+    plot_actual_vs_predicted(results_df_regression)
+
+    # Plots - features
+    # Importances are always positive so we have them in green,
+    # The line really only tells us about weights
+    # skip baseline and svm
+    for model_name in results_df_regression.index:
+        plot_feature_importance(results_df_regression, model_name)
+
+    for model_name in results_df_classification.index:
+        plot_feature_importance(results_df_classification, model_name)
+
+    # plot residuals - predicted on x, actual on y
+    plot_residuals(results_df_regression)
+
+
 
 
 
