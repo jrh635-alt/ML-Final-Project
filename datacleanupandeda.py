@@ -669,6 +669,69 @@ if __name__ == '__main__':
 
     print(tuning_times)
 
+    # RFR Plots
+    # R^2
+    fig, ax = plt.subplots(figsize=(8, 5))
+    results_df_regression.loc[['random_forest_regression', 'rfr grid search',
+                               'rfr random search']].plot(kind='bar', y='R^2', ax=ax,
+                                         legend=False)
+
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=30, ha='right')
+    ax.set_ylim(results_df_regression['R^2'].loc[['random_forest_regression', 'rfr grid search',
+                               'rfr random search']].min() - 0.02,
+                results_df_regression['R^2'].loc[['random_forest_regression', 'rfr grid search',
+                               'rfr random search']].max() + 0.02)
+    ax.set_title('Random Forest Regression R^2')
+
+    plt.tight_layout()
+    plt.show()
+
+    # GBR Plots
+    # R^2
+    fig, ax = plt.subplots(figsize=(8, 5))
+    results_df_regression.loc[['gradient_boosting_regression', 'gbr grid search',
+                               'gbr random search']].plot(kind='bar', y='R^2',
+                                                          ax=ax,
+                                                          legend=False)
+
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=30, ha='right')
+    ax.set_ylim(results_df_regression['R^2'].loc[['gradient_boosting_regression', 'gbr grid search',
+                               'gbr random search']].min() - 0.02,
+                results_df_regression['R^2'].loc[['gradient_boosting_regression', 'gbr grid search',
+                               'gbr random search']].max() + 0.02)
+    ax.set_title('Gradient Boosting Regression R^2')
+
+    plt.tight_layout()
+    plt.show()
+
+    # GBC Plots
+    # ROC-AUC
+    fig, ax = plt.subplots(figsize=(8, 5))
+    results_df_classification.loc[
+        ['gradient_boosting_classification', 'gbc grid search',
+         'gbc random search']].plot(kind='bar', y='ROC-AUC',
+                                    ax=ax,
+                                    legend=False)
+
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=30, ha='right')
+    ax.set_ylim(results_df_classification['ROC-AUC'].loc[
+                    ['gradient_boosting_classification', 'gbc grid search',
+                     'gbc random search']].min() - 0.02,
+                results_df_classification['ROC-AUC'].loc[
+                    ['gradient_boosting_classification', 'gbc grid search',
+                     'gbc random search']].max() + 0.02)
+    ax.set_title('Gradient Boosting Classification ROC-AUC')
+
+    plt.tight_layout()
+    plt.show()
+
+    plot_classification_metrics(results_df_classification)
+
+
+
+
+
+
 
 
 
