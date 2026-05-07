@@ -405,6 +405,49 @@ if __name__ == '__main__':
     print(f'df_features: \n {df_features.head()}')
     print(f'df_features.shape: {df_features.shape}')
 
+    # =======================
+    # DATA SUMMARY
+    # =======================
+
+    print("\n***DATA SUMMARY***")
+
+    # Number of samples and features
+    print("\nNumber of samples:", df_features.shape[0])
+    print("Number of features:", df_features.shape[1] - 1)
+
+    # -----------------------
+    # Target summary
+    # -----------------------
+    print("\nTarget Summary:")
+    summary = df_features[target].describe()
+    summary_df = summary.to_frame(name='Value')
+    summary_df.index.name = 'Statistic'
+    print(summary_df)
+
+    # -----------------------
+    # Feature summary (sample)
+    # -----------------------
+    print("\nFeature Summary (sample of features):")
+    feature_summary = df_features[features].describe().T[['mean', 'std', 'min', 'max']]
+    print(feature_summary.head())
+
+    # -----------------------
+    # Binary distribution
+    # -----------------------
+    binary = (df_features[target] > 0).astype(int)
+    print("\nBinary Distribution:")
+    print(binary.value_counts(normalize=True))
+
+    # -----------------------
+    # Plot target distribution
+    # -----------------------
+    plt.figure()
+    sns.histplot(df_features[target])
+    plt.title('Distribution of Net Migration Rate')
+    plt.xlabel('Net Migration Rate')
+    plt.ylabel('Count')
+    plt.show()
+
     '''
     # Plotting target distribution to check for skewness
     plt.figure()
