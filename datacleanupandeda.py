@@ -26,6 +26,7 @@ import os
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 import time
+from sklearn.dummy import DummyClassifier
 
 
 
@@ -65,6 +66,13 @@ def baseline_regression(X_train, X_test, y_train, y_test, features):
     baseline.fit(X_train, y_train)
     y_pred_baseline = baseline.predict(X_test)
     return y_pred_baseline
+
+def baseline_classification(X_train, X_test, y_train, y_test, features):
+    baseline = DummyClassifier(strategy='most_frequent')
+    baseline.fit(X_train, y_train)
+    y_pred_baseline = baseline.predict(X_test)
+    proba = baseline.predict_proba(X_test)[:, 1]
+    return y_pred_baseline, None, proba
 
 def linear_regression(X_train, X_test, y_train, y_test, features):
     ULRmodel = LinearRegression()
@@ -476,12 +484,8 @@ if __name__ == '__main__':
     regression_models = [linear_regression, sgd_regression, ridge_regression,
                          lasso_regression, random_forest_regression,
                          gradient_boosting_regression, decision_tree_regression]
-    classification_models = [logistic_regression, decision_tree_classification,
+    classification_models = [baseline_classification, logistic_regression, decision_tree_classification,
                              random_forest_classification, gradient_boosting_classification]
-    tree_models = [decision_tree_regression, decision_tree_classification,
-                   random_forest_regression, random_forest_classification,
-                   gradient_boosting_regression, gradient_boosting_classification,
-                   svm_classification]
 
     results_df_regression = pd.DataFrame(columns=['Actual', 'Predicted', 'importance/weight', 'R^2', 'MSE'])
 
