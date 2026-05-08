@@ -486,7 +486,8 @@ if __name__ == '__main__':
                          lasso_regression, random_forest_regression,
                          gradient_boosting_regression, decision_tree_regression]
     classification_models = [baseline_classification, logistic_regression, decision_tree_classification,
-                             random_forest_classification, gradient_boosting_classification]
+                             random_forest_classification, gradient_boosting_classification,
+                             svm_classification]
 
     results_df_regression = pd.DataFrame(columns=['Actual', 'Predicted', 'importance/weight', 'R^2', 'MSE'])
 
@@ -530,6 +531,7 @@ if __name__ == '__main__':
     results_df_regression.loc[baseline_regression.__name__] = [y_test, y_pred_baseline, None,
                                                         r2_score(y_test, y_pred_baseline),
                                                         mean_squared_error(y_test, y_pred_baseline)]
+
 
 
     results_dfs = [results_df_regression, results_df_classification]
@@ -744,7 +746,19 @@ if __name__ == '__main__':
                  rfr_grid_params, rfr_random_params]
 
     pd.set_option('display.max_columns', None)
-    print(results_df_regression.loc['gbr random search', 'importance/weight'])
+    for index, row in results_df_classification.iterrows():
+        print(f"\n--- {index} ---")
+        val = row['importance/weight']
+        if val is None:
+            print("No data")
+        else:
+            top5 = val.iloc[:, 1].nlargest(5)
+            features = val.iloc[top5.index, 0]
+            result = pd.DataFrame({
+                'Feature': features.values,
+                top5.name: top5.values
+            })
+            print(result.to_string(index=False))
 
 
 
