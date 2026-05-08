@@ -27,6 +27,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 import time
 from sklearn.dummy import DummyClassifier
+from IPython.display import display
 
 
 
@@ -730,6 +731,21 @@ if __name__ == '__main__':
     plt.show()
 
     plot_classification_metrics(results_df_classification)
+
+    # Post tune things we want
+
+    for model_name in results_df_regression.index:
+        plot_feature_importance(results_df_regression, model_name)
+
+    for model_name in results_df_classification.index:
+        plot_feature_importance(results_df_classification, model_name)
+
+    posttune_list = [gbc_grid_params, gbc_random_params, gbr_params_grid, gbr_params_random,
+                 rfr_grid_params, rfr_random_params]
+
+    pd.set_option('display.max_columns', None)
+    print(results_df_regression.loc['gbr random search', 'importance/weight'])
+
 
 
 
