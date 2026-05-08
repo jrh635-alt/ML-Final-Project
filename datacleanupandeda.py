@@ -6,6 +6,7 @@ Created on Tue Apr 21 13:46:55 2026
 @author: jack
 """
 import pandas as pd
+import pip
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, ElasticNet
 from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, f1_score, precision_score, recall_score, roc_auc_score, roc_curve
@@ -27,8 +28,6 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 import time
 from sklearn.dummy import DummyClassifier
-from IPython.display import display
-
 
 
 def read_data(data_file_path, headers_file_path, features_file_path):
@@ -433,6 +432,7 @@ if __name__ == '__main__':
     summary_df.index.name = 'Statistic'
     print(summary_df)
 
+
     # -----------------------
     # Feature summary (sample)
     # -----------------------
@@ -479,6 +479,25 @@ if __name__ == '__main__':
     # Data splitting
     X_train, X_test, y_train, y_test = split_data(df_features, features, target)
 
+    # -----------------------
+    # Heat map of correlated features
+    # -----------------------
+    plt.figure(figsize=(12, 10))
+    corr_matrix = X_train[features + [target]].corr()
+
+    sns.heatmap(
+        corr_matrix,
+        cmap='coolwarm',
+        center=0,
+        cbar=True
+    )
+
+    plt.title('Correlation Matrix of Features and Target')
+    plt.tight_layout()
+    import os
+    os.makedirs("plots", exist_ok=True)
+    plt.savefig('plots/correlation_matrix.png')
+
     # Prep for binary classification methods
     binary_y_train, binary_y_test = binary_preprocessing(y_train, y_test)
 
@@ -486,8 +505,7 @@ if __name__ == '__main__':
                          lasso_regression, random_forest_regression,
                          gradient_boosting_regression, decision_tree_regression]
     classification_models = [baseline_classification, logistic_regression, decision_tree_classification,
-                             random_forest_classification, gradient_boosting_classification,
-                             svm_classification]
+                             random_forest_classification, gradient_boosting_classification]
 
     results_df_regression = pd.DataFrame(columns=['Actual', 'Predicted', 'importance/weight', 'R^2', 'MSE'])
 
@@ -531,7 +549,6 @@ if __name__ == '__main__':
     results_df_regression.loc[baseline_regression.__name__] = [y_test, y_pred_baseline, None,
                                                         r2_score(y_test, y_pred_baseline),
                                                         mean_squared_error(y_test, y_pred_baseline)]
-
 
 
     results_dfs = [results_df_regression, results_df_classification]
@@ -733,33 +750,6 @@ if __name__ == '__main__':
     plt.show()
 
     plot_classification_metrics(results_df_classification)
-
-    # Post tune things we want
-
-    for model_name in results_df_regression.index:
-        plot_feature_importance(results_df_regression, model_name)
-
-    for model_name in results_df_classification.index:
-        plot_feature_importance(results_df_classification, model_name)
-
-    posttune_list = [gbc_grid_params, gbc_random_params, gbr_params_grid, gbr_params_random,
-                 rfr_grid_params, rfr_random_params]
-
-    pd.set_option('display.max_columns', None)
-    for index, row in results_df_classification.iterrows():
-        print(f"\n--- {index} ---")
-        val = row['importance/weight']
-        if val is None:
-            print("No data")
-        else:
-            top5 = val.iloc[:, 1].nlargest(5)
-            features = val.iloc[top5.index, 0]
-            result = pd.DataFrame({
-                'Feature': features.values,
-                top5.name: top5.values
-            })
-            print(result.to_string(index=False))
-
 
 
 
